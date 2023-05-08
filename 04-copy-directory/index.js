@@ -1,4 +1,4 @@
-const fs = require('fs').promises;
+const fs = require('fs');
 const path = require('path');
 
 
@@ -10,12 +10,13 @@ const destPath = path.resolve(__dirname, DEST_PATH);
 
 copyDir(srcPath, destPath);
 
-async function copyDir(srcPath, destPath) {
 
+async function copyDir(srcPath, destPath) {
   const destIsExist = await isExist(destPath); //check if destPath exist
   // delete if old destPath exist
-  if (destIsExist) await fs.rm(destPath, { recursive: true, force: true}); 
-  await fs.mkdir(destPath, { recursive: true}); // create path
+  if (destIsExist) await fs.promises.rm(destPath, { recursive: true, force: true });
+  await fs.promises.mkdir(destPath, { recursive: true }); // create path
+
   // get files array from srcPath
   const srcFiles = await getFiles(srcPath);
   try {
@@ -23,12 +24,17 @@ async function copyDir(srcPath, destPath) {
       const relativeFilePath = path.relative(srcPath, file);
       const destFilePath = path.join(destPath, relativeFilePath);
 
-      await fs.copyFile(file, destFilePath);
+      // Create necessary subdirectories before copying the file
+      const destFileDir = path.dirname(destFilePath);
+      await fs.promises.mkdir(destFileDir, { recursive: true });
+
+      await fs.promises.copyFile(file, destFilePath);
     }
-  } catch(err) {
+  } catch (err) {
     console.error(err, ' Files could not be copied');
   }
 }
+
 
 async function isExist(dir) {
   let dirHandle;
@@ -44,11 +50,14 @@ async function isExist(dir) {
   return true;
 }
 
-async function getFiles(dir) {
-  const dirents = await fs.readdir(dir, { withFileTypes: true });
-  const files = await Promise.all(dirents.map((dirent) => {
+async function getFiles(dir, ext='') {
+  const dirents = await fs.promises.readdir(dir, { withFileTypes: true });
+  let files = await Promise.all(dirents.map((dirent) => {
     const res = path.resolve(dir, dirent.name);
     return dirent.isDirectory() ? getFiles(res) : res;
   }));
+
+  if (ext) files = files.filter(file => path.parse(file).ext === ext);
+
   return Array.prototype.concat(...files);
 }
